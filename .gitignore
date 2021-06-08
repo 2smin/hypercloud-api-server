@@ -1,3 +1,6 @@
 main
-main.exe
+*.exe
+*.sh
 build/
+logs/*.log
+

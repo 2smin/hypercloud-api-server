@@ -22,7 +22,9 @@ import (
 	"github.com/tmax-cloud/hypercloud-api-server/namespaceClaim"
 	user "github.com/tmax-cloud/hypercloud-api-server/user"
 	util "github.com/tmax-cloud/hypercloud-api-server/util"
+	"github.com/tmax-cloud/hypercloud-api-server/util/caller"
 	kafkaConsumer "github.com/tmax-cloud/hypercloud-api-server/util/consumer"
+	dataFactory "github.com/tmax-cloud/hypercloud-api-server/util/dataFactory"
 	version "github.com/tmax-cloud/hypercloud-api-server/version"
 	"k8s.io/api/admission/v1beta1"
 	"k8s.io/klog"
@@ -51,14 +53,16 @@ func main() {
 	flag.StringVar(&util.SMTPUsernamePath, "smtpUsername", "/run/secrets/smtp/username", "SMTP Server Username")
 	flag.StringVar(&util.SMTPPasswordPath, "smtpPassword", "/run/secrets/smtp/password", "SMTP Server Password")
 	flag.StringVar(&util.AccessSecretPath, "accessSecret", "/run/secrets/token/accessSecret", "Token Access Secret")
+	flag.StringVar(&dataFactory.DBPassWordPath, "dbPassword", "/run/secrets/timescaledb/password", "Timescaledb Server Password")
 	flag.StringVar(&util.HtmlHomePath, "htmlPath", "/run/configs/html/", "Invite htlm path")
 	// flag.StringVar(&util.TokenExpiredDate, "tokenExpiredDate", "24hours", "Token Expired Date")
 
-	go util.ReadFile()
-
+	util.TokenExpiredDate = os.Getenv("INVITATION_TOKEN_EXPIRED_DATE")
+	util.ReadFile()
+	dataFactory.CreateConnection()
+	caller.UpdateAuditResourceList()
 	// Get Hypercloud Operating Mode!!!
 	hcMode := os.Getenv("HC_MODE")
-	util.TokenExpiredDate = os.Getenv("INVITATION_TOKEN_EXPIRED_DATE")
 
 	// For Log file
 	klog.InitFlags(nil)
@@ -102,7 +106,7 @@ func main() {
 	})
 
 	// Metering Cron Job
-	cronJob.AddFunc("0 */1 * ? * *", metering.MeteringJob)
+	// cronJob.AddFunc("0 */1 * ? * *", metering.MeteringJob)
 	cronJob.AddFunc("@hourly", audit.UpdateAuditResource)
 	cronJob.Start()
 
@@ -143,7 +147,7 @@ func main() {
 	}
 
 	mux.HandleFunc("/metadata", serveMetadata)
-	mux.HandleFunc("/audit/member_suggestions", serveAuditMemberSuggestions)
+	// mux.HandleFunc("/audit/member_suggestions", serveAuditMemberSuggestions)
 	mux.HandleFunc("/audit", serveAudit)
 	mux.HandleFunc("/audit/batch", serveAuditBatch)
 	mux.HandleFunc("/audit/resources", serveAuditResources)
@@ -171,6 +175,17 @@ func main() {
 	if err := whsvr.ListenAndServeTLS("", ""); err != nil {
 		klog.Errorf("Failed to listen and serve Hypercloud5-API server: %s", err)
 	}
+	defer dataFactory.Dbpool.Close()
+
+	// whsvr := &http.Server{
+	// 	Addr:    fmt.Sprintf(":%d", port),
+	// 	Handler: mux,
+	// 	// TLSConfig: &tls.Config{Certificates: []tls.Certificate{keyPair}},
+	// }
+
+	// if err := whsvr.ListenAndServe(); err != nil {
+	// 	klog.Errorf("Failed to listen and serve Hypercloud5-API server: %s", err)
+	// }
 }
 
 func serveNamespace(res http.ResponseWriter, req *http.Request) {
@@ -365,6 +380,9 @@ func serveTest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	klog.Info("Request body: \n", string(body))
+
+	/// redirection
+	http.Redirect(w, r, "https://192.168.9.143", http.StatusSeeOther)
 }
 
 func serveAudit(w http.ResponseWriter, r *http.Request) {
@@ -391,14 +409,14 @@ func serveAuditResources(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func serveAuditMemberSuggestions(w http.ResponseWriter, r *http.Request) {
-	klog.Infof("Http request: method=%s, uri=%s", r.Method, r.URL.Path)
-	switch r.Method {
-	case http.MethodGet:
-		audit.MemberSuggestions(w, r)
-	default:
-	}
-}
+// func serveAuditMemberSuggestions(w http.ResponseWriter, r *http.Request) {
+// 	klog.Infof("Http request: method=%s, uri=%s", r.Method, r.URL.Path)
+// 	switch r.Method {
+// 	case http.MethodGet:
+// 		audit.MemberSuggestions(w, r)
+// 	default:
+// 	}
+// }
 
 func serveAuditBatch(w http.ResponseWriter, r *http.Request) {
 	klog.Infof("Http request: method=%s, uri=%s", r.Method, r.URL.Path)

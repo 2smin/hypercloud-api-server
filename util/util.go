@@ -47,6 +47,7 @@ var (
 	HtmlHomePath           string
 	TokenExpiredDate       string
 	ParsedTokenExpiredDate time.Duration
+	ValidTime              string
 )
 
 //Jsonpatch를 담을 수 있는 구조체
@@ -80,8 +81,8 @@ func ReadFile() {
 	password = string(content)
 
 	ParsedTokenExpiredDate = parseDate(TokenExpiredDate)
-
 }
+
 func parseDate(tokenExpiredDate string) time.Duration {
 	regex := regexp.MustCompile("[0-9]+")
 	num := regex.FindAllString(tokenExpiredDate, -1)[0]
@@ -94,12 +95,16 @@ func parseDate(tokenExpiredDate string) time.Duration {
 
 	switch unit {
 	case "minutes":
+		ValidTime = strconv.Itoa(parsedNum) + "분"
 		return time.Minute * time.Duration(parsedNum)
 	case "hours":
+		ValidTime = strconv.Itoa(parsedNum) + "시"
 		return time.Hour * time.Duration(parsedNum)
 	case "days":
+		ValidTime = strconv.Itoa(parsedNum) + "일"
 		return time.Hour * time.Duration(24) * time.Duration(parsedNum)
 	case "weeks":
+		ValidTime = strconv.Itoa(parsedNum) + "주"
 		return time.Hour * time.Duration(24) * time.Duration(7) * time.Duration(parsedNum)
 	default:
 		return time.Hour * time.Duration(24) * time.Duration(7) //1days
@@ -234,16 +239,18 @@ func MonthToInt(month time.Month) int {
 
 func SendEmail(from string, to []string, subject string, bodyParameter map[string]string) error {
 	// func SendEmail(from string, to []string, subject string, body string, imgPath string, imgCid string) error {
-	content, err := ioutil.ReadFile(HtmlHomePath + "invite.html")
+	content, err := ioutil.ReadFile(HtmlHomePath + "cluster-invitation.html")
 	if err != nil {
 		klog.Errorln(err)
 		return err
 	}
 	inviteMail = string(content)
 
+	inviteMail = strings.Replace(inviteMail, "@@LINK@@", bodyParameter["@@LINK@@"], -1)
 	for k, v := range bodyParameter {
 		inviteMail = strings.Replace(inviteMail, k, v, -1)
 	}
+
 	klog.Infoln(inviteMail)
 
 	m := gomail.NewMessage()

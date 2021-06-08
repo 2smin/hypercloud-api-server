@@ -39,7 +39,7 @@ var customClientset *client.Clientset
 var AuditResourceList map[string][]string
 
 func init() {
-	AuditResourceList = make(map[string][]string)
+	// AuditResourceList = make(map[string][]string)
 
 	// var kubeconfig *string
 	// if home := homedir.HomeDir(); home != "" {
@@ -583,6 +583,8 @@ func GetAlert(name string, ns string, label string) alertModel.Alert {
 }
 
 func CreateSubjectAccessReview(userId string, userGroups []string, group string, resource string, namespace string, name string, verb string) (*authApi.SubjectAccessReview, error) {
+	klog.Info(userId)
+	klog.Info(userGroups)
 	sar := &authApi.SubjectAccessReview{
 		Spec: authApi.SubjectAccessReviewSpec{
 			ResourceAttributes: &authApi.ResourceAttributes{
@@ -627,7 +629,7 @@ func AdmitClusterClaim(userId string, userGroups []string, clusterClaim *claimsv
 		} else {
 			clusterClaim.Status.Phase = "Rejected"
 			if reason == "" {
-				clusterClaim.Status.Reason = "Administrator approve the claim"
+				clusterClaim.Status.Reason = "Administrator reject the claim"
 			} else {
 				clusterClaim.Status.Reason = reason
 			}
@@ -1194,6 +1196,9 @@ func CreateClusterManager(clusterClaim *claimsv1alpha1.ClusterClaim) (*clusterv1
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clusterClaim.Spec.ClusterName,
 			Namespace: clusterClaim.Namespace,
+			Labels: map[string]string{
+				"clusterclaim": clusterClaim.Name,
+			},
 			Annotations: map[string]string{
 				"owner": clusterClaim.Annotations["creator"],
 			},
@@ -1219,6 +1224,7 @@ func CreateClusterManager(clusterClaim *claimsv1alpha1.ClusterClaim) (*clusterv1
 }
 
 func UpdateAuditResourceList() {
+	AuditResourceList = make(map[string][]string)
 	apiGroupList := &metav1.APIGroupList{}
 	data, err := Clientset.RESTClient().Get().AbsPath("/apis/").DoRaw(context.TODO())
 	if err != nil {
