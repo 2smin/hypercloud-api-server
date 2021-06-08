@@ -133,8 +133,8 @@ func InviteUser(res http.ResponseWriter, req *http.Request) {
 	from := "no-reply-tc@tmax.co.kr"
 	subject := userId + "(이)가 당신을 " + cluster + " cluster에 초대하였습니다."
 	bodyParameter := map[string]string{}
-	// bodyParameter["@@LINK@@"] = LINK
-	bodyParameter["@@LINK@@"] = "https://192.168.9.143"
+	bodyParameter["@@LINK@@"] = LINK
+	// bodyParameter["@@LINK@@"] = "https://192.168.9.143"
 	bodyParameter["@@CLUSTER_NAME@@"] = cluster
 	bodyParameter["@@VALID_TIME@@"] = util.ValidTime
 	bodyParameter["@@OWNER_EMAIL@@"] = userId
