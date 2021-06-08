@@ -75,7 +75,14 @@ func Put(res http.ResponseWriter, req *http.Request) {
 	updatedClusterClaim, msg, status := caller.AdmitClusterClaim(userId, userGroups, cc, admitBool, reason)
 	if updatedClusterClaim == nil {
 		klog.Errorln(msg)
-		util.SetResponse(res, msg, nil, http.StatusInternalServerError)
+		util.SetResponse(res, msg, nil, status)
+		return
+	}
+
+	if updatedClusterClaim.Status.Phase == "Rejected" {
+		msg = "ClusterClaim is rejected by admin"
+		klog.Infoln(msg)
+		util.SetResponse(res, msg, nil, http.StatusOK)
 		return
 	}
 

@@ -64,6 +64,9 @@ func main() {
 	// Get Hypercloud Operating Mode!!!
 	hcMode := os.Getenv("HC_MODE")
 
+	util.ReadFile()
+	caller.UpdateAuditResourceList()
+
 	// For Log file
 	klog.InitFlags(nil)
 	flag.Set("logtostderr", "false")
