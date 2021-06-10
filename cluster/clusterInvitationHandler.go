@@ -43,8 +43,13 @@ func InviteUser(res http.ResponseWriter, req *http.Request) {
 	clusterMember.Role = remoteRole
 	clusterMember.MemberId = memberId
 	clusterMember.MemberName = memberName
+
 	clusterMember.Attribute = "user"
 	clusterMember.Status = "pending"
+
+	for _, val := range userGroups {
+		clusterMember.Groups = append(clusterMember.Groups, val)
+	}
 
 	// cluster ready 인지 확인
 	clm, msg, status := caller.GetCluster(userId, userGroups, cluster, clusterManagerNamespace)
@@ -277,7 +282,7 @@ func InviteGroup(res http.ResponseWriter, req *http.Request) {
 func AcceptInvitation(res http.ResponseWriter, req *http.Request) {
 	queryParams := req.URL.Query()
 	userId := queryParams.Get(QUERY_PARAMETER_USER_ID)
-	userGroups := queryParams[util.QUERY_PARAMETER_USER_GROUP]
+	userGroups := []string{}
 	vars := gmux.Vars(req)
 	cluster := vars["clustermanager"]
 	memberId := vars["member"]
@@ -304,7 +309,7 @@ func AcceptInvitation(res http.ResponseWriter, req *http.Request) {
 	clusterMember.Status = "pending"
 
 	// token validation
-	if err := util.TokenValid(req, clusterMember); err != nil {
+	if userGroups, err = util.TokenValid(req, clusterMember); err != nil {
 		klog.Errorln(err)
 		util.SetResponse(res, err.Error(), nil, http.StatusBadRequest)
 		return
@@ -402,7 +407,7 @@ func AcceptInvitation(res http.ResponseWriter, req *http.Request) {
 func DeclineInvitation(res http.ResponseWriter, req *http.Request) {
 	queryParams := req.URL.Query()
 	userId := queryParams.Get(QUERY_PARAMETER_USER_ID)
-	userGroups := queryParams[util.QUERY_PARAMETER_USER_GROUP]
+	userGroups := []string{}
 	// token := queryParams.Get(QUERY_PARAMETER_REMOTE_ROLE)
 
 	vars := gmux.Vars(req)
@@ -424,7 +429,7 @@ func DeclineInvitation(res http.ResponseWriter, req *http.Request) {
 	clusterMember.Status = "pending"
 
 	// token validation
-	if err := util.TokenValid(req, clusterMember); err != nil {
+	if _, err := util.TokenValid(req, clusterMember); err != nil {
 		klog.Errorln(err)
 		util.SetResponse(res, err.Error(), nil, http.StatusBadRequest)
 		return

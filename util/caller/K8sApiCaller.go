@@ -197,9 +197,10 @@ func GetAccessibleNS(userId string, labelSelector string, userGroups []string) c
 				nsGetRuleReview := authApi.SubjectAccessReview{
 					Spec: authApi.SubjectAccessReviewSpec{
 						ResourceAttributes: &authApi.ResourceAttributes{
-							Resource:  "namespaces",
-							Verb:      "get", //FIXME : list??
-							Group:     "",
+							Resource: "namespaces",
+							Verb:     "get", //FIXME : list??
+							Group:    "",
+							// Name:     potentialNs.GetName(),
 							Namespace: potentialNs.GetName(),
 						},
 						User:   userId,
@@ -1063,12 +1064,10 @@ func GetFbc(namespace string, name string) (*configv1alpha1.FluentBitConfigurati
 }
 
 func CreateNSGetRole(clusterManager *clusterv1alpha1.ClusterManager, subject string, attribute string) (string, int) {
-	var clusterRoleName string
 	var clusterRoleBindingName string
 	clusterRoleBinding := &rbacApi.ClusterRoleBinding{}
 	if attribute == "user" {
-		clusterRoleName = subject + "-user-" + clusterManager.Namespace + "-" + clusterManager.Name + "-clusterrole"
-		clusterRoleBindingName = subject + "-user-" + clusterManager.Namespace + "-" + clusterManager.Name + "-clusterrolebinding"
+		clusterRoleBindingName = subject + "-user-" + clusterManager.Namespace + "-clusterrolebinding"
 		clusterRoleBinding.Subjects = []rbacApi.Subject{
 			{
 				APIGroup: "rbac.authorization.k8s.io",
@@ -1077,8 +1076,7 @@ func CreateNSGetRole(clusterManager *clusterv1alpha1.ClusterManager, subject str
 			},
 		}
 	} else {
-		clusterRoleName = subject + "-group-" + clusterManager.Namespace + "-" + clusterManager.Name + "-clusterrole"
-		clusterRoleBindingName = subject + "-group-" + clusterManager.Namespace + "-" + clusterManager.Name + "-clusterrolebinding"
+		clusterRoleBindingName = subject + "-group-" + clusterManager.Namespace + "-clusterrolebinding"
 		clusterRoleBinding.Subjects = []rbacApi.Subject{
 			{
 				APIGroup: "rbac.authorization.k8s.io",
@@ -1086,33 +1084,6 @@ func CreateNSGetRole(clusterManager *clusterv1alpha1.ClusterManager, subject str
 				Name:     subject,
 			},
 		}
-	}
-
-	clusterRole := &rbacApi.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: clusterRoleName,
-			OwnerReferences: []metav1.OwnerReference{
-				metav1.OwnerReference{
-					APIVersion:         util.CLUSTER_API_GROUP_VERSION,
-					Kind:               util.CLUSTER_API_Kind,
-					Name:               clusterManager.GetName(),
-					UID:                clusterManager.GetUID(),
-					BlockOwnerDeletion: pointer.BoolPtr(true),
-					Controller:         pointer.BoolPtr(true),
-				},
-			},
-		},
-		Rules: []rbacApi.PolicyRule{
-			{APIGroups: []string{""}, Resources: []string{"namespaces"},
-				ResourceNames: []string{clusterManager.Namespace}, Verbs: []string{"get"}},
-			{APIGroups: []string{util.CLUSTER_API_GROUP}, Resources: []string{"namespaces/status"},
-				ResourceNames: []string{clusterManager.Namespace}, Verbs: []string{"get"}},
-		},
-	}
-
-	if _, err := Clientset.RbacV1().ClusterRoles().Create(context.TODO(), clusterRole, metav1.CreateOptions{}); err != nil {
-		klog.Errorln(err)
-		return err.Error(), http.StatusInternalServerError
 	}
 
 	clusterRoleBinding.ObjectMeta = metav1.ObjectMeta{
@@ -1131,14 +1102,14 @@ func CreateNSGetRole(clusterManager *clusterv1alpha1.ClusterManager, subject str
 	clusterRoleBinding.RoleRef = rbacApi.RoleRef{
 		APIGroup: "rbac.authorization.k8s.io",
 		Kind:     "ClusterRole",
-		Name:     clusterRoleName,
+		Name:     "clusterrole-ns-get",
 	}
 
 	if _, err := Clientset.RbacV1().ClusterRoleBindings().Create(context.TODO(), clusterRoleBinding, metav1.CreateOptions{}); err != nil {
 		klog.Errorln(err)
 		return err.Error(), http.StatusInternalServerError
 	}
-	msg := "Namespace Get Reole [" + clusterRoleName + "] and rolebinding [ " + clusterRoleBindingName + "]  is created"
+	msg := "Namespace Get Reole [clusterrole-ns-get] and rolebinding [ " + clusterRoleBindingName + "]  is created"
 	klog.Infoln(msg)
 
 	return msg, http.StatusOK

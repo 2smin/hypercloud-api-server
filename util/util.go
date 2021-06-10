@@ -26,6 +26,7 @@ type ClusterMemberInfo struct {
 	Namespace   string
 	Cluster     string
 	MemberId    string
+	Groups      []string
 	MemberName  string
 	Attribute   string
 	Role        string
@@ -275,6 +276,7 @@ func CreateToken(clusterMember ClusterMemberInfo) (string, error) {
 	atClaims["cluster"] = clusterMember.Cluster
 	atClaims["user_id"] = clusterMember.MemberId
 	atClaims["user_name"] = clusterMember.MemberName
+	atClaims["user_groups"] = clusterMember.Groups
 	atClaims["exp"] = time.Now().Add(ParsedTokenExpiredDate).Unix()
 	at := jwt.NewWithClaims(jwt.SigningMethodHS256, atClaims)
 	token, err := at.SignedString([]byte(accessSecret))
@@ -344,24 +346,29 @@ func VerifyToken(r *http.Request) (*jwt.Token, error) {
 // 	return nil
 // }
 
-func TokenValid(r *http.Request, clusterMember ClusterMemberInfo) error {
+func TokenValid(r *http.Request, clusterMember ClusterMemberInfo) ([]string, error) {
 	var memberId string
 	var cluster string
 	var namespace string
+	var groups []string
 	token, err := VerifyToken(r)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if ok && token.Valid {
 		memberId, ok = claims["user_id"].(string)
 		cluster, ok = claims["cluster"].(string)
 		namespace, ok = claims["namespace"].(string)
+		tmp := claims["user_groups"].([]interface{})
+		groups = make([]string, len(tmp))
+		for i, v := range tmp {
+			groups[i] = fmt.Sprint(v)
+		}
 	}
 
 	if clusterMember.MemberId == memberId && clusterMember.Cluster == cluster && clusterMember.Namespace == namespace {
-		return nil
+		return groups, nil
 	}
-	return errors.New("Request user or target cluster does not match with token payload")
-
+	return nil, errors.New("Request user or target cluster does not match with token payload")
 }
